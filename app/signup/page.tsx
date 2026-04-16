@@ -1,9 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
-export default function SignupPage() {
+function SignupPageContent() {
+  const searchParams = useSearchParams();
+  const inviteCode = searchParams.get("invite");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,7 +21,7 @@ export default function SignupPage() {
     const supabase = createClient();
     const { error } = await supabase.auth.signUp({
       email, password,
-      options: { data: { name } }
+      options: { data: { name, invite_code: inviteCode || "" } }
     });
     if (error) { setError(error.message); setLoading(false); }
     else { setVerified(true); setLoading(false); }
@@ -26,8 +29,8 @@ export default function SignupPage() {
 
   if (verified) {
     return (
-      <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #EEF2FF 0%, #F8FAFF 100%)", display: "flex", flexDirection: "column" }}>
-        <nav style={{ padding: "16px 32px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(255,255,255,0.8)", backdropFilter: "blur(12px)", borderBottom: "1px solid #E2E8F0" }}>
+      <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #EEF2FF 0%, #F8FAFF 100%)", display: "flex", flexDirection: "column", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+        <nav style={{ padding: "16px 32px", display: "flex", alignItems: "center", background: "rgba(255,255,255,0.8)", backdropFilter: "blur(12px)", borderBottom: "1px solid #E2E8F0" }}>
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
             <div style={{ background: "linear-gradient(135deg, #4F46E5, #818CF8)", color: "white", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13 }}>TD</div>
             <span style={{ fontWeight: 700, fontSize: 16, color: "#0F172A" }}>Tutor Desk</span>
@@ -40,15 +43,17 @@ export default function SignupPage() {
             <p style={{ color: "#64748B", fontSize: 15, lineHeight: 1.7, marginBottom: 8 }}>
               Humne <strong style={{ color: "#4F46E5" }}>{email}</strong> pe verification link bheja hai.
             </p>
-            <p style={{ color: "#64748B", fontSize: 14, lineHeight: 1.7, marginBottom: 32 }}>
-              Email open karo aur link pe click karo — phir login kar sakte ho!
-            </p>
+            {inviteCode && (
+              <div style={{ background: "#ECFDF5", border: "1px solid #A7F3D0", borderRadius: 10, padding: "10px 14px", margin: "16px 0", fontSize: 13, color: "#059669", fontWeight: 600 }}>
+                🏫 Email verify hone ke baad login karo — academy auto join hogi!
+              </div>
+            )}
             <div style={{ background: "#F8FAFF", borderRadius: 12, padding: "20px 24px", marginBottom: 28, textAlign: "left" }}>
               {[
                 { step: "1", text: "Apni email inbox kholein" },
                 { step: "2", text: "Tutor Desk ka email dhundein" },
                 { step: "3", text: '"Confirm your email" link pe click karein' },
-                { step: "4", text: "Wapas aa kar login karein" },
+                { step: "4", text: inviteCode ? "Wapas aa kar login karo — academy auto join hogi!" : "Wapas aa kar login karein" },
               ].map(s => (
                 <div key={s.step} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
                   <div style={{ background: "linear-gradient(135deg, #4F46E5, #818CF8)", color: "white", borderRadius: "50%", width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{s.step}</div>
@@ -56,11 +61,11 @@ export default function SignupPage() {
                 </div>
               ))}
             </div>
-            <Link href="/login" style={{ display: "block", padding: "13px", background: "linear-gradient(135deg, #4F46E5, #818CF8)", color: "white", borderRadius: 10, fontWeight: 700, fontSize: 15, textDecoration: "none", boxShadow: "0 4px 14px rgba(79,70,229,0.3)" }}>
+            <Link href={inviteCode ? `/login?invite=${inviteCode}` : "/login"} style={{ display: "block", padding: "13px", background: "linear-gradient(135deg, #4F46E5, #818CF8)", color: "white", borderRadius: 10, fontWeight: 700, fontSize: 15, textDecoration: "none", boxShadow: "0 4px 14px rgba(79,70,229,0.3)" }}>
               Login karein →
             </Link>
             <p style={{ marginTop: 16, fontSize: 12, color: "#94A3B8" }}>
-              Email nahi aayi? Spam folder check karein ya{" "}
+              Email nahi aayi?{" "}
               <button onClick={() => setVerified(false)} style={{ color: "#4F46E5", background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "inherit" }}>dobara try karein</button>
             </p>
           </div>
@@ -70,7 +75,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #EEF2FF 0%, #F8FAFF 100%)", display: "flex", flexDirection: "column" }}>
+    <div style={{ minHeight: "100vh", background: "linear-gradient(135deg, #EEF2FF 0%, #F8FAFF 100%)", display: "flex", flexDirection: "column", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       <nav style={{ padding: "16px 32px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(255,255,255,0.8)", backdropFilter: "blur(12px)", borderBottom: "1px solid #E2E8F0" }}>
         <Link href="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
           <div style={{ background: "linear-gradient(135deg, #4F46E5, #818CF8)", color: "white", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13 }}>TD</div>
@@ -78,13 +83,23 @@ export default function SignupPage() {
         </Link>
         <Link href="/" style={{ fontSize: 13, color: "#64748B", textDecoration: "none", fontWeight: 500 }}>← Back to Home</Link>
       </nav>
+
       <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
         <div style={{ background: "white", borderRadius: 20, padding: "48px 40px", width: "100%", maxWidth: 420, boxShadow: "0 8px 40px rgba(0,0,0,0.08)", border: "1px solid #E2E8F0" }}>
           <div style={{ textAlign: "center", marginBottom: 32 }}>
             <div style={{ background: "linear-gradient(135deg, #4F46E5, #818CF8)", color: "white", borderRadius: 14, width: 52, height: 52, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 20, margin: "0 auto 16px" }}>TD</div>
-            <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0F172A" }}>Free Account Banao</h1>
+            <h1 style={{ fontSize: 24, fontWeight: 800, color: "#0F172A" }}>
+              {inviteCode ? "Account Banao & Join Karo" : "Free Account Banao"}
+            </h1>
             <p style={{ color: "#64748B", marginTop: 6, fontSize: 14 }}>Bilkul free — koi payment nahi</p>
           </div>
+
+          {inviteCode && (
+            <div style={{ background: "#ECFDF5", border: "1px solid #A7F3D0", borderRadius: 10, padding: "10px 14px", marginBottom: 20, fontSize: 13, color: "#059669", textAlign: "center", fontWeight: 600 }}>
+              🏫 Invite Code: {inviteCode.toUpperCase()} — Signup ke baad auto join!
+            </div>
+          )}
+
           <form onSubmit={handleSignup}>
             <div style={{ marginBottom: 16 }}>
               <label className="label">Aapka Naam</label>
@@ -102,15 +117,24 @@ export default function SignupPage() {
               <div style={{ background: "#FEF2F2", color: "#DC2626", padding: "10px 14px", borderRadius: 8, marginBottom: 16, fontSize: 13, border: "1px solid #FECACA" }}>❌ {error}</div>
             )}
             <button type="submit" disabled={loading} style={{ width: "100%", padding: "13px", background: "linear-gradient(135deg, #4F46E5, #818CF8)", color: "white", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: loading ? "not-allowed" : "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif", opacity: loading ? 0.8 : 1, boxShadow: "0 4px 14px rgba(79,70,229,0.3)" }}>
-              {loading ? "Account ban raha hai..." : "Free Account Banao →"}
+              {loading ? "Account ban raha hai..." : inviteCode ? "Account Banao & Join Karo →" : "Free Account Banao →"}
             </button>
           </form>
+
           <p style={{ textAlign: "center", marginTop: 24, fontSize: 14, color: "#64748B" }}>
             Pehle se account hai?{" "}
-            <Link href="/login" style={{ color: "#4F46E5", fontWeight: 600, textDecoration: "none" }}>Login karein</Link>
+            <Link href={inviteCode ? `/login?invite=${inviteCode}` : "/login"} style={{ color: "#4F46E5", fontWeight: 600, textDecoration: "none" }}>Login karein</Link>
           </p>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F8FAFF', fontFamily: "'Plus Jakarta Sans', sans-serif" }}><p style={{ color: '#94A3B8' }}>Loading...</p></div>}>
+      <SignupPageContent />
+    </Suspense>
   );
 }
