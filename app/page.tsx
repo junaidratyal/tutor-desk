@@ -59,7 +59,7 @@ export default function Home() {
         <div style={{ marginTop: 60, maxWidth: 800, margin: "60px auto 0", background: "white", borderRadius: 20, border: "1px solid #E2E8F0", boxShadow: "0 20px 60px rgba(0,0,0,0.1)", overflow: "hidden" }}>
           <div style={{ background: "#F8FAFC", padding: "12px 16px", borderBottom: "1px solid #E2E8F0", display: "flex", gap: 6 }}>
             {["#EF4444","#F59E0B","#10B981"].map(c => <div key={c} style={{ width: 10, height: 10, borderRadius: "50%", background: c }} />)}
-            <span style={{ fontSize: 12, color: "#94A3B8", marginLeft: 8 }}>tutor-desk.vercel.app/dashboard</span>
+            <span style={{ fontSize: 12, color: "#94A3B8", marginLeft: 8 }}>Tutor Desk</span>
           </div>
           <div style={{ padding: "24px", display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
             {[["👨‍🎓","12","Students","#EEF2FF","#4F46E5"],["✅","8","Paid","#ECFDF5","#059669"],["⏳","4","Pending","#FFFBEB","#D97706"],["📅","3","Today","#FDF2F8","#DB2777"]].map(([icon,num,label,bg,color]) => (
