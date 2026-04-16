@@ -20,11 +20,9 @@ export default function DashboardPage() {
       const currentMonth = today.getMonth() + 1;
       const currentYear = today.getFullYear();
 
-      // First get THIS tutor's students only
+      // Get MY students only
       const { data: myStudents } = await supabase
-        .from("students")
-        .select("id")
-        .eq("tutor_id", user.id);
+        .from("students").select("id, monthly_fee").eq("tutor_id", user.id);
 
       const myStudentIds = (myStudents || []).map(s => s.id);
       const totalStudents = myStudentIds.length;
@@ -35,28 +33,38 @@ export default function DashboardPage() {
         return;
       }
 
-      // Now fetch payments and sessions only for MY students
-      const [paymentsRes, sessionsRes] = await Promise.all([
-        supabase.from("payments")
-          .select("status, student_id")
-          .in("student_id", myStudentIds)
-          .eq("year", currentYear)
-          .eq("month", currentMonth),
-        supabase.from("sessions")
-          .select("id")
-          .in("student_id", myStudentIds)
-          .eq("date", todayStr)
-          .eq("status", "scheduled"),
-      ]);
+      // Get payments for MY students this month
+      const { data: payments } = await supabase
+        .from("payments")
+        .select("status, student_id")
+        .in("student_id", myStudentIds)
+        .eq("year", currentYear)
+        .eq("month", currentMonth);
 
-      const paid = (paymentsRes.data || []).filter(p => p.status === "paid").length;
-      const unpaid = (paymentsRes.data || []).filter(p => p.status === "unpaid").length;
+      // Sessions today
+      const { data: sessions } = await supabase
+        .from("sessions")
+        .select("id")
+        .in("student_id", myStudentIds)
+        .eq("date", todayStr)
+        .eq("status", "scheduled");
+
+      // Count paid students (have payment record with paid status)
+      const paidStudentIds = (payments || [])
+        .filter(p => p.status === "paid")
+        .map(p => p.student_id);
+
+      const paid = paidStudentIds.length;
+
+      // Pending = total students - paid students
+      // (students with unpaid record OR no record at all)
+      const unpaid = totalStudents - paid;
 
       setStats({
         students: totalStudents,
         paidFees: paid,
         unpaidFees: unpaid,
-        todaySessions: (sessionsRes.data || []).length,
+        todaySessions: (sessions || []).length,
       });
       setLoading(false);
     }
