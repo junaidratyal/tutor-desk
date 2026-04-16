@@ -73,6 +73,16 @@ export default function Sidebar() {
             {item.label}
           </Link>
         ))}
+
+        {/* Academy Section */}
+        <div style={{ margin: "12px 0 6px", padding: "0 14px" }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.08em", textTransform: "uppercase" }}>Academy</p>
+        </div>
+        <Link href="/academy/dashboard" onClick={() => setOpen(false)}
+          className={`nav-item ${pathname.startsWith("/academy") ? "active" : ""}`}>
+          <span className="icon">🏫</span>
+          Academy
+        </Link>
       </nav>
 
       <div style={{ padding: "16px", borderTop: "1px solid #F1F5F9" }}>
