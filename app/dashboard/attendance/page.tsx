@@ -57,7 +57,7 @@ export default function AttendancePage() {
 
     const studentIds = st.map((s: any) => s.id);
     const startDate = `${year}-${String(month).padStart(2,"0")}-01`;
-    const endDate = `${year}-${String(month).padStart(2,"0")}-31`;
+    const endDate = new Date(year, month, 0).toISOString().split("T")[0];
 
     const { data: att, error: attErr } = await supabase
       .from("attendance")
