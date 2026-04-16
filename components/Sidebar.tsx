@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: "📊", exact: true },
   { href: "/dashboard/students", label: "Students", icon: "👨‍🎓" },
+  { href: "/dashboard/attendance", label: "Attendance", icon: "✅" },
   { href: "/dashboard/fees", label: "Fees", icon: "💰" },
   { href: "/dashboard/schedule", label: "Schedule", icon: "📅" },
   { href: "/dashboard/reminders", label: "Reminders", icon: "💬" },
@@ -40,18 +41,16 @@ export default function Sidebar() {
 
   const SidebarContent = () => (
     <>
-      {/* Logo */}
       <div style={{ padding: "24px 20px 20px", borderBottom: "1px solid #F1F5F9" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ background: "linear-gradient(135deg, #4F46E5, #818CF8)", color: "white", borderRadius: 10, width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 16, boxShadow: "0 4px 12px rgba(79,70,229,0.35)" }}>TD</div>
           <div>
-            <p style={{ fontWeight: 800, fontSize: 16, color: "#0F172A", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Tutor Desk</p>
+            <p style={{ fontWeight: 800, fontSize: 16, color: "#0F172A" }}>Tutor Desk</p>
             <p style={{ fontSize: 11, color: "#94A3B8", marginTop: 1 }}>Smart Tutor Manager</p>
           </div>
         </div>
       </div>
 
-      {/* User info */}
       <div style={{ padding: "16px 20px", borderBottom: "1px solid #F1F5F9" }}>
         <div style={{ background: "#F8FAFC", borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ background: "linear-gradient(135deg, #4F46E5, #818CF8)", borderRadius: "50%", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 700, fontSize: 13 }}>
@@ -64,7 +63,6 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Nav */}
       <nav style={{ padding: "12px", flex: 1 }}>
         <p style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", letterSpacing: "0.08em", textTransform: "uppercase", padding: "8px 14px 6px" }}>Menu</p>
         {navItems.map(item => (
@@ -76,11 +74,8 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Bottom */}
       <div style={{ padding: "16px", borderTop: "1px solid #F1F5F9" }}>
-        <button onClick={handleLogout} style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid #E2E8F0", background: "white", color: "#64748B", fontSize: 13, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontFamily: "'Plus Jakarta Sans', sans-serif", transition: "all 0.2s" }}
-          onMouseEnter={e => { (e.target as HTMLElement).style.background = "#FEF2F2"; (e.target as HTMLElement).style.color = "#EF4444"; (e.target as HTMLElement).style.borderColor = "#FECACA"; }}
-          onMouseLeave={e => { (e.target as HTMLElement).style.background = "white"; (e.target as HTMLElement).style.color = "#64748B"; (e.target as HTMLElement).style.borderColor = "#E2E8F0"; }}>
+        <button onClick={handleLogout} style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid #E2E8F0", background: "white", color: "#64748B", fontSize: 13, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, fontFamily: "'Plus Jakarta Sans', sans-serif", transition: "all 0.2s" }}>
           🚪 Logout
         </button>
       </div>
@@ -89,7 +84,6 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Mobile header */}
       <div className="mobile-header">
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ background: "linear-gradient(135deg, #4F46E5, #818CF8)", color: "white", borderRadius: 8, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14 }}>TD</div>
@@ -97,11 +91,7 @@ export default function Sidebar() {
         </div>
         <button onClick={() => setOpen(!open)} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer" }}>☰</button>
       </div>
-
-      {/* Overlay */}
       <div className={`overlay ${open ? "show" : ""}`} onClick={() => setOpen(false)} />
-
-      {/* Sidebar */}
       <aside className={`sidebar ${open ? "open" : ""}`}>
         <SidebarContent />
       </aside>
