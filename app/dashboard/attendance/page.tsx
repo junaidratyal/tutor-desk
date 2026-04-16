@@ -36,21 +36,37 @@ export default function AttendancePage() {
   const [selectedStudent, setSelectedStudent] = useState("all");
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
-  const [saving, setSaving] = useState<string | null>(null); // studentId being saved
+  const [saving, setSaving] = useState<string | null>(null);
   const [view, setView] = useState<"mark" | "report">("mark");
+  const [loadError, setLoadError] = useState("");
 
   const today = localDateStr(new Date());
   const last7Days = getLastNDays(7);
 
   async function load() {
+    setLoadError("");
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data: st } = await supabase.from("students").select("*").eq("tutor_id", user.id);
+    if (!user) { setLoadError("Not logged in!"); return; }
+
+    const { data: st, error: stErr } = await supabase
+      .from("students").select("*").eq("tutor_id", user.id);
+    if (stErr) { setLoadError("Students load error: " + stErr.message); return; }
     setStudents(st || []);
+    if (!st || st.length === 0) return;
+
+    const studentIds = st.map((s: any) => s.id);
     const startDate = `${year}-${String(month).padStart(2,"0")}-01`;
     const endDate = `${year}-${String(month).padStart(2,"0")}-31`;
-    const { data: att } = await supabase.from("attendance").select("*").gte("date", startDate).lte("date", endDate);
+
+    const { data: att, error: attErr } = await supabase
+      .from("attendance")
+      .select("*")
+      .in("student_id", studentIds)
+      .gte("date", startDate)
+      .lte("date", endDate);
+
+    if (attErr) { setLoadError("Attendance load error: " + attErr.message); return; }
     setAttendance(att || []);
   }
 
@@ -63,20 +79,19 @@ export default function AttendancePage() {
 
     if (existing) {
       if (existing.status === status) {
-        // Unmark
-        await supabase.from("attendance").delete().eq("id", existing.id);
-        setAttendance(prev => prev.filter(a => a.id !== existing.id));
+        const { error } = await supabase.from("attendance").delete().eq("id", existing.id);
+        if (!error) setAttendance(prev => prev.filter(a => a.id !== existing.id));
       } else {
-        // Update
-        await supabase.from("attendance").update({ status }).eq("id", existing.id);
-        setAttendance(prev => prev.map(a => a.id === existing.id ? { ...a, status } : a));
+        const { error } = await supabase.from("attendance").update({ status }).eq("id", existing.id);
+        if (!error) setAttendance(prev => prev.map(a => a.id === existing.id ? { ...a, status } : a));
       }
     } else {
-      // Insert
-      const { data } = await supabase.from("attendance")
+      const { data, error } = await supabase
+        .from("attendance")
         .insert({ student_id: studentId, date, status, note: "" })
         .select().single();
-      if (data) setAttendance(prev => [...prev, data]);
+      if (!error && data) setAttendance(prev => [...prev, data]);
+      else if (error) setLoadError("Save error: " + error.message);
     }
     setSaving(null);
   }
@@ -98,7 +113,6 @@ export default function AttendancePage() {
 
   return (
     <div className="fade-in">
-      {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28, flexWrap: "wrap", gap: 14 }}>
         <div>
           <h1 style={{ fontSize: 26, fontWeight: 800, color: "#0F172A" }}>Attendance</h1>
@@ -118,7 +132,12 @@ export default function AttendancePage() {
         </div>
       </div>
 
-      {/* Toggle */}
+      {loadError && (
+        <div style={{ background: "#FEF2F2", color: "#DC2626", padding: "12px 16px", borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
+          ❌ {loadError}
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 4, background: "#F1F5F9", borderRadius: 10, padding: 4, marginBottom: 24, width: "fit-content" }}>
         {(["mark","report"] as const).map(v => (
           <button key={v} onClick={() => setView(v)} style={{ padding: "8px 20px", borderRadius: 8, border: "none", fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif", background: view === v ? "white" : "transparent", color: view === v ? "#4F46E5" : "#64748B", boxShadow: view === v ? "0 1px 4px rgba(0,0,0,0.1)" : "none", transition: "all 0.2s" }}>
@@ -129,11 +148,11 @@ export default function AttendancePage() {
 
       {view === "mark" ? (
         <>
-          {/* Mark Today */}
           <div className="card" style={{ padding: "24px 28px", marginBottom: 24 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
               <h2 style={{ fontWeight: 700, fontSize: 16, color: "#0F172A" }}>📅 Mark Attendance</h2>
               <span style={{ background: "#EEF2FF", color: "#4F46E5", padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600 }}>{today}</span>
+              <span style={{ fontSize: 12, color: "#94A3B8" }}>{attendance.length} records loaded</span>
             </div>
 
             {filteredStudents.length === 0 ? (
@@ -158,9 +177,7 @@ export default function AttendancePage() {
                           width: 44, height: 44, borderRadius: "50%",
                           background: activeCfg ? activeCfg.color : "linear-gradient(135deg, #4F46E5, #818CF8)",
                           display: "flex", alignItems: "center", justifyContent: "center",
-                          color: "white", fontWeight: 800, fontSize: 18,
-                          transition: "background 0.25s ease",
-                          boxShadow: activeCfg ? `0 4px 12px ${activeCfg.bg}` : "none"
+                          color: "white", fontWeight: 800, fontSize: 18, transition: "all 0.25s"
                         }}>
                           {isSaving ? "⏳" : activeCfg ? activeCfg.icon : s.name.charAt(0).toUpperCase()}
                         </div>
@@ -171,7 +188,6 @@ export default function AttendancePage() {
                           </p>
                         </div>
                       </div>
-
                       <div style={{ display: "flex", gap: 8 }}>
                         {(["present","absent","leave"] as const).map(status => {
                           const cfg = STATUS_CONFIG[status];
@@ -184,8 +200,7 @@ export default function AttendancePage() {
                                 padding: "10px 18px", borderRadius: 10,
                                 cursor: isSaving ? "not-allowed" : "pointer",
                                 fontFamily: "'Plus Jakarta Sans', sans-serif",
-                                fontSize: 13, fontWeight: 700,
-                                transition: "all 0.2s ease",
+                                fontSize: 13, fontWeight: 700, transition: "all 0.2s ease",
                                 border: `2px solid ${isActive ? cfg.color : "#E2E8F0"}`,
                                 background: isActive ? cfg.color : "white",
                                 color: isActive ? "white" : "#94A3B8",
@@ -205,7 +220,7 @@ export default function AttendancePage() {
             )}
           </div>
 
-          {/* Last 7 Days Table */}
+          {/* Last 7 Days */}
           <div className="card" style={{ padding: "24px 28px", overflowX: "auto" }}>
             <h2 style={{ fontWeight: 700, fontSize: 16, color: "#0F172A", marginBottom: 20 }}>Last 7 Days</h2>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
@@ -236,14 +251,7 @@ export default function AttendancePage() {
                       return (
                         <td key={d} style={{ padding: "12px", textAlign: "center", borderBottom: "1px solid #F1F5F9", background: isToday ? "#F5F7FF" : "transparent" }}>
                           {cfg ? (
-                            <span style={{
-                              background: cfg.bg, color: cfg.color,
-                              border: `1.5px solid ${cfg.border}`,
-                              borderRadius: 8, padding: "5px 12px",
-                              fontSize: 14, fontWeight: 800,
-                              display: "inline-block",
-                              transition: "all 0.2s"
-                            }}>
+                            <span style={{ background: cfg.bg, color: cfg.color, border: `1.5px solid ${cfg.border}`, borderRadius: 8, padding: "5px 12px", fontSize: 14, fontWeight: 800, display: "inline-block" }}>
                               {cfg.icon}
                             </span>
                           ) : (
@@ -259,7 +267,6 @@ export default function AttendancePage() {
           </div>
         </>
       ) : (
-        /* Monthly Report */
         <div style={{ display: "grid", gap: 16 }}>
           {filteredStudents.map(s => {
             const stats = getStats(s.id);
