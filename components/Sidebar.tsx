@@ -15,6 +15,7 @@ const navItems = [
   { href: "/dashboard/reports", label: "Reports", icon: "📄" },
   { href: "/dashboard/ai", label: "AI Assistant", icon: "🤖" },
   { href: "/dashboard/homework", label: "Homework", icon: "📝" },
+  { href: "/dashboard/announcements", label: "Announcements", icon: "📣" },
   { href: "/academy/dashboard", label: "Academy", icon: "🏫", academy: true },
 ];
 
