@@ -133,7 +133,7 @@ export default function DashboardPage() {
                 { label: "Done", value: stats.submittedHw, color: "#059669" },
               ].map(s => (
                 <div key={s.label} style={{ textAlign: "center" }}>
-                  <p style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{loading ? "—" : s.value}</p>
+                  <p style={{ fontSize: 30, fontWeight: 800, color: s.color }}>{loading ? "—" : s.value}</p>
                   <p style={{ fontSize: 11, color: "var(--text-muted)" }}>{s.label}</p>
                 </div>
               ))}
