@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 
 interface Student {
@@ -11,6 +11,7 @@ interface Student {
   subject: string;
   monthly_fee: number;
   email: string;
+  avatar_url?: string;
   created_at: string;
 }
 
@@ -20,10 +21,13 @@ export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [showForm, setShowForm] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
   const [inviteSent, setInviteSent] = useState<string | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
 
   async function load() {
     const supabase = createClient();
@@ -57,7 +61,6 @@ export default function StudentsPage() {
       : await supabase.from("students").insert(payload);
 
     if (error) { setMsg("❌ Error: " + error.message); setSaving(false); return; }
-
     setMsg("✅ Saved!");
     setSaving(false);
     setForm(emptyForm);
@@ -67,8 +70,6 @@ export default function StudentsPage() {
     load();
   }
 
-  const [saving, setSaving] = useState(false);
-
   async function handleDelete(id: string) {
     if (!confirm("Delete this student?")) return;
     const supabase = createClient();
@@ -76,76 +77,64 @@ export default function StudentsPage() {
     load();
   }
 
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !uploadTargetId) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert("File too large! Max 2MB allowed.");
+      return;
+    }
+
+    setUploadingId(uploadTargetId);
+    const supabase = createClient();
+    const ext = file.name.split(".").pop();
+    const path = `students/${uploadTargetId}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("avatars")
+      .upload(path, file, { upsert: true });
+
+    if (uploadError) {
+      alert("Upload failed: " + uploadError.message);
+      setUploadingId(null);
+      return;
+    }
+
+    const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+
+    await supabase.from("students").update({ avatar_url: publicUrl + "?t=" + Date.now() }).eq("id", uploadTargetId);
+    setUploadingId(null);
+    setUploadTargetId(null);
+    load();
+  }
+
+  async function removeAvatar(student: Student) {
+    if (!confirm("Remove profile picture?")) return;
+    const supabase = createClient();
+    await supabase.from("students").update({ avatar_url: null }).eq("id", student.id);
+    load();
+  }
+
   async function sendInvite(student: Student) {
     if (!student.email) { alert("Please add student email first!"); return; }
-
-    const supabase = createClient();
-
-    // Check if already has account
-    const { data: acc } = await supabase
-      .from("student_accounts")
-      .select("id, user_id")
-      .eq("student_id", student.id)
-      .single();
-
     const portalUrl = `${window.location.origin}/student/login?email=${encodeURIComponent(student.email)}`;
-    const msg = `Assalam o Alaikum ${student.name}! 👋
-
-Your Tutor Desk Student Portal is ready!
-
-🎓 *Student Portal Access*
-Email: ${student.email}
-Portal: ${portalUrl}
-
-Steps:
-1. Open the link above
-2. Click "Create Account"
-3. Enter your email and set a password
-4. Login to see your assignments, attendance & more!
-
-See you in class! 📚
-— Your Tutor`;
-
-    // Copy to clipboard
+    const msg = `Assalam o Alaikum ${student.name}! 👋\n\nYour Tutor Desk Student Portal is ready!\n\n🎓 *Student Portal Access*\nEmail: ${student.email}\nPortal: ${portalUrl}\n\nSteps:\n1. Open the link above\n2. Click "Create Account"\n3. Enter your email and set a password\n4. Login to see your assignments, attendance & more!\n\nSee you in class! 📚\n— Your Tutor`;
     navigator.clipboard.writeText(msg);
     setInviteSent(student.id);
     setTimeout(() => setInviteSent(null), 3000);
-
-    // Also open WhatsApp
     const phone = student.phone.replace(/\D/g, "");
     const intl = phone.startsWith("0") ? "92" + phone.slice(1) : phone;
     window.open(`https://wa.me/${intl}?text=${encodeURIComponent(msg)}`, "_blank");
   }
 
   async function sendAllInvites() {
-    const studentsWithEmail = students.filter(s => s.email);
-    if (studentsWithEmail.length === 0) { alert("No students have email addresses. Add emails first!"); return; }
-
+    const withEmail = students.filter(s => s.email);
+    if (!withEmail.length) { alert("No students have email addresses!"); return; }
     const portalUrl = `${window.location.origin}/student/login`;
-    const groupMsg = `Assalam o Alaikum Students & Parents! 👋
-
-🎓 *Tutor Desk Student Portal is now LIVE!*
-
-All students can now access their:
-✅ Homework & Assignments
-✅ Attendance Records
-✅ Fee Status
-✅ Upcoming Sessions
-
-*How to Access:*
-1. Go to: ${portalUrl}
-2. Click "Create Account"
-3. Use your registered email
-4. Set a password and login!
-
-Students registered:
-${studentsWithEmail.map(s => `• ${s.name} (${s.email})`).join("\n")}
-
-See you online! 📱
-— Tutor Desk`;
-
+    const groupMsg = `Assalam o Alaikum Students & Parents! 👋\n\n🎓 *Tutor Desk Student Portal is now LIVE!*\n\nAll students can now access their:\n✅ Homework & Assignments\n✅ Attendance Records\n✅ Fee Status\n✅ Upcoming Sessions\n✅ Announcements\n\n*How to Access:*\n1. Go to: ${portalUrl}\n2. Click "Create Account"\n3. Use your registered email\n4. Set a password and login!\n\nStudents registered:\n${withEmail.map(s => `• ${s.name} (${s.email})`).join("\n")}\n\nSee you online! 📱\n— Tutor Desk`;
     navigator.clipboard.writeText(groupMsg);
-    alert(`✅ Group message copied!\n\nPaste it in your WhatsApp group.\n${studentsWithEmail.length} students with emails will be notified.`);
+    alert(`✅ Group message copied!\n\nPaste it in your WhatsApp group.\n${withEmail.length} students with emails will be notified.`);
   }
 
   function startEdit(s: Student) {
@@ -156,6 +145,10 @@ See you online! 📱
 
   return (
     <div>
+      {/* Hidden file input */}
+      <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleAvatarUpload} />
+
+      {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 26, fontWeight: 800, color: "var(--text-primary)" }}>Students</h1>
@@ -178,21 +171,20 @@ See you online! 📱
         </div>
       )}
 
-      {/* Student Portal Info Banner */}
+      {/* Portal Banner */}
       <div style={{ background: "linear-gradient(135deg, #EEF2FF, #E0E7FF)", border: "1px solid #C7D2FE", borderRadius: 14, padding: "16px 20px", marginBottom: 24, display: "flex", alignItems: "center", gap: 12 }}>
         <span style={{ fontSize: 24 }}>🎓</span>
         <div style={{ flex: 1 }}>
           <p style={{ fontWeight: 700, fontSize: 14, color: "#4F46E5" }}>Student Portal is Live!</p>
-          <p style={{ fontSize: 13, color: "#6366F1" }}>
-            Students can login at: <strong>{typeof window !== "undefined" ? window.location.origin : ""}/student/login</strong>
-          </p>
+          <p style={{ fontSize: 13, color: "#6366F1" }}>Students login at: <strong>{typeof window !== "undefined" ? window.location.origin : ""}/student/login</strong></p>
         </div>
-        <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/student/login`); alert("Link copied!"); }}
+        <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/student/login`); alert("Copied!"); }}
           style={{ padding: "7px 14px", background: "#4F46E5", color: "white", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif", whiteSpace: "nowrap" }}>
           📋 Copy Link
         </button>
       </div>
 
+      {/* Add/Edit Form */}
       {showForm && (
         <div className="card" style={{ padding: 28, marginBottom: 28 }}>
           <h2 style={{ fontWeight: 700, marginBottom: 20, color: "var(--text-primary)" }}>{editId ? "Edit Student" : "Add New Student"}</h2>
@@ -219,6 +211,7 @@ See you online! 📱
         </div>
       )}
 
+      {/* Students List */}
       <div style={{ display: "grid", gap: 14 }}>
         {students.length === 0 && !showForm && (
           <div className="card" style={{ padding: 48, textAlign: "center", color: "var(--text-muted)" }}>
@@ -230,16 +223,36 @@ See you online! 📱
         {students.map(s => (
           <div key={s.id} className="card" style={{ padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
             <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-              <div style={{ background: "#EEF2FF", borderRadius: "50%", width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, color: "#4F46E5" }}>
-                {s.name.charAt(0).toUpperCase()}
+              {/* Avatar */}
+              <div style={{ position: "relative", flexShrink: 0 }}>
+                <div style={{ width: 52, height: 52, borderRadius: "50%", overflow: "hidden", border: "2px solid var(--border)", background: "#EEF2FF", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                  onClick={() => { setUploadTargetId(s.id); fileInputRef.current?.click(); }}>
+                  {uploadingId === s.id ? (
+                    <span style={{ fontSize: 18 }}>⏳</span>
+                  ) : s.avatar_url ? (
+                    <img src={s.avatar_url} alt={s.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : (
+                    <span style={{ fontSize: 20, fontWeight: 700, color: "#4F46E5" }}>{s.name.charAt(0).toUpperCase()}</span>
+                  )}
+                </div>
+                {/* Camera icon */}
+                <div style={{ position: "absolute", bottom: 0, right: 0, background: "#4F46E5", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, cursor: "pointer", border: "1px solid white" }}
+                  onClick={() => { setUploadTargetId(s.id); fileInputRef.current?.click(); }}>
+                  📷
+                </div>
               </div>
+
               <div>
                 <p style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>{s.name}</p>
                 <p style={{ color: "var(--text-secondary)", fontSize: 13 }}>Parent: {s.parent_name} • {s.phone}</p>
-                <p style={{ color: "var(--text-secondary)", fontSize: 13 }}>Subject: {s.subject} {s.email && <span style={{ color: "#4F46E5" }}>• 📧 {s.email}</span>}</p>
+                <p style={{ color: "var(--text-secondary)", fontSize: 13 }}>
+                  {s.subject}
+                  {s.email && <span style={{ color: "#4F46E5" }}> • 📧 {s.email}</span>}
+                </p>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <div style={{ textAlign: "right" }}>
                 <p style={{ fontWeight: 700, color: "#4F46E5", fontSize: 16 }}>PKR {s.monthly_fee.toLocaleString()}</p>
                 <p style={{ color: "var(--text-muted)", fontSize: 12 }}>per month</p>
@@ -247,12 +260,19 @@ See you online! 📱
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {s.email && (
                   <button onClick={() => sendInvite(s)}
-                    style={{ padding: "7px 14px", borderRadius: 6, border: "1px solid #A7F3D0", background: inviteSent === s.id ? "#ECFDF5" : "white", color: inviteSent === s.id ? "#059669" : "#10B981", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                    {inviteSent === s.id ? "✓ Sent!" : "📲 Invite"}
+                    style={{ padding: "7px 12px", borderRadius: 6, border: "1px solid #A7F3D0", background: inviteSent === s.id ? "#ECFDF5" : "white", color: inviteSent === s.id ? "#059669" : "#10B981", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                    {inviteSent === s.id ? "✓" : "📲"}
                   </button>
                 )}
-                <button onClick={() => startEdit(s)} style={{ padding: "7px 14px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-card)", cursor: "pointer", fontSize: 13, color: "var(--text-secondary)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>✏️ Edit</button>
-                <button onClick={() => handleDelete(s.id)} style={{ padding: "7px 12px", borderRadius: 6, border: "1px solid #FECACA", background: "#FEF2F2", color: "#DC2626", cursor: "pointer", fontSize: 13 }}>🗑️</button>
+                {s.avatar_url && (
+                  <button onClick={() => removeAvatar(s)}
+                    style={{ padding: "7px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-muted)", cursor: "pointer", fontSize: 12, fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                    title="Remove photo">
+                    🗑️📷
+                  </button>
+                )}
+                <button onClick={() => startEdit(s)} style={{ padding: "7px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-card)", cursor: "pointer", fontSize: 13, color: "var(--text-secondary)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>✏️</button>
+                <button onClick={() => handleDelete(s.id)} style={{ padding: "7px 10px", borderRadius: 6, border: "1px solid #FECACA", background: "#FEF2F2", color: "#DC2626", cursor: "pointer", fontSize: 13 }}>🗑️</button>
               </div>
             </div>
           </div>
