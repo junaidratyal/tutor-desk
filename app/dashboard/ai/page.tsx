@@ -111,11 +111,7 @@ Keep it encouraging, professional and parent-friendly. Mix English and Roman Urd
       const response = await fetch("/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          messages: [{ role: "user", content: prompt }]
-        })
+        body: JSON.stringify({ prompt })
       });
 
       const data = await response.json();
@@ -158,11 +154,7 @@ Write in mix of English and Roman Urdu.`;
       const response = await fetch("/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          messages: [{ role: "user", content: prompt }]
-        })
+        body: JSON.stringify({ prompt })
       });
       const data = await response.json();
       setReportCard(data.text || data.error || "Plan generate nahi hua.");
@@ -209,11 +201,7 @@ Keep it concise (150-200 words), conversational, and use WhatsApp-friendly forma
       const response = await fetch("/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          messages: [{ role: "user", content: prompt }]
-        })
+        body: JSON.stringify({ prompt })
       });
       const data = await response.json();
       setReportCard(data.text || data.error || "Message generate nahi hua.");
