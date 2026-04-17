@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   try {
-    const { prompt } = await req.json();
+    const body = await req.json();
+    const prompt = body.prompt || "";
+
+    if (!prompt) {
+      return NextResponse.json({ error: "Prompt missing" }, { status: 400 });
+    }
 
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -14,8 +19,10 @@ export async function POST(req: NextRequest) {
         model: "llama-3.1-8b-instant",
         max_tokens: 1000,
         messages: [
-          { role: "system", content: "You are an expert Pakistani tutor assistant. Help tutors create professional reports, study plans and parent messages." },
-          { role: "user", content: prompt }
+          {
+            role: "user",
+            content: prompt
+          }
         ],
       }),
     });
@@ -26,8 +33,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: data.error.message }, { status: 400 });
     }
 
-    const text = data.choices?.[0]?.message?.content || "";
+    const text = data.choices?.[0]?.message?.content || "Response empty aaya";
     return NextResponse.json({ text });
+
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
