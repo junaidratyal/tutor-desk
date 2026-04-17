@@ -13,6 +13,7 @@ const navItems = [
   { href: "/dashboard/schedule", label: "Schedule", icon: "📅" },
   { href: "/dashboard/reminders", label: "Reminders", icon: "💬" },
   { href: "/dashboard/reports", label: "Reports", icon: "📄" },
+  { href: "/dashboard/ai", label: "AI Assistant", icon: "🤖" },
   { href: "/academy/dashboard", label: "Academy", icon: "🏫", academy: true },
 ];
 
