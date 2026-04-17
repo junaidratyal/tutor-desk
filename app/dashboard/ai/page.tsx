@@ -1,4 +1,3 @@
-
 "use client";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
@@ -109,7 +108,7 @@ Generate a warm, professional report card with:
 Keep it encouraging, professional and parent-friendly. Mix English and Roman Urdu naturally.`;
 
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch("/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -120,7 +119,7 @@ Keep it encouraging, professional and parent-friendly. Mix English and Roman Urd
       });
 
       const data = await response.json();
-      const text = data.content?.[0]?.text || "Report generate nahi ho saki. Dobara try karo!";
+      const text = data.text || data.error || "Report generate nahi ho saki. Dobara try karo!";
       setReportCard(text);
     } catch (err) {
       setReportCard("❌ Error: Report generate nahi ho saki. Internet check karo.");
@@ -156,7 +155,7 @@ Keep it practical, specific to ${student.subject}, and suitable for Pakistani cu
 Write in mix of English and Roman Urdu.`;
 
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch("/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -166,7 +165,7 @@ Write in mix of English and Roman Urdu.`;
         })
       });
       const data = await response.json();
-      setReportCard(data.content?.[0]?.text || "Plan generate nahi hua.");
+      setReportCard(data.text || data.error || "Plan generate nahi hua.");
     } catch {
       setReportCard("❌ Error. Dobara try karo.");
     }
@@ -207,7 +206,7 @@ Write a professional yet warm WhatsApp message in Roman Urdu that:
 Keep it concise (150-200 words), conversational, and use WhatsApp-friendly formatting with emojis.`;
 
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch("/api/ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -217,7 +216,7 @@ Keep it concise (150-200 words), conversational, and use WhatsApp-friendly forma
         })
       });
       const data = await response.json();
-      setReportCard(data.content?.[0]?.text || "Message generate nahi hua.");
+      setReportCard(data.text || data.error || "Message generate nahi hua.");
     } catch {
       setReportCard("❌ Error. Dobara try karo.");
     }
