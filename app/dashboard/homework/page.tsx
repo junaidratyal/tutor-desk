@@ -189,7 +189,7 @@ Due Date: *${bulkSuccess.dueDate}*
 
 Students: ${bulkSuccess.students.map(s => s.name).join(", ")}
 
-Please make sure your child completes the assignment on time.
+Please complete the assignment on time.
 
 Thank you! 🙏
 — Tutor Desk`;
