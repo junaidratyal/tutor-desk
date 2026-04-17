@@ -1,21 +1,22 @@
-
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   try {
     const { prompt } = await req.json();
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY || "",
-        "anthropic-version": "2023-06-01",
+        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
+        model: "llama-3.1-8b-instant",
         max_tokens: 1000,
-        messages: [{ role: "user", content: prompt }],
+        messages: [
+          { role: "system", content: "You are an expert Pakistani tutor assistant. Help tutors create professional reports, study plans and parent messages." },
+          { role: "user", content: prompt }
+        ],
       }),
     });
 
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: data.error.message }, { status: 400 });
     }
 
-    const text = data.content?.[0]?.text || "";
+    const text = data.choices?.[0]?.message?.content || "";
     return NextResponse.json({ text });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
