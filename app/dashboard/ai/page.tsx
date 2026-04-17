@@ -10,22 +10,6 @@ interface Student {
   monthly_fee: number;
 }
 
-interface Attendance {
-  status: string;
-  date: string;
-}
-
-interface Payment {
-  status: string;
-  month: number;
-  year: number;
-}
-
-interface Session {
-  status: string;
-  date: string;
-}
-
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
 export default function AIPage() {
@@ -34,9 +18,10 @@ export default function AIPage() {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [loading, setLoading] = useState(false);
-  const [reportCard, setReportCard] = useState("");
+  const [result, setResult] = useState("");
   const [tutorName, setTutorName] = useState("");
   const [activeTab, setActiveTab] = useState<"report" | "study" | "feedback">("report");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -51,193 +36,265 @@ export default function AIPage() {
     load();
   }, []);
 
+  async function callAI(prompt: string) {
+    const response = await fetch("/api/ai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt })
+    });
+    const data = await response.json();
+    return data.text || data.error || "Kuch error aya. Dobara try karo.";
+  }
+
   async function generateReportCard() {
     if (!selectedStudent) return;
     setLoading(true);
-    setReportCard("");
-
+    setResult("");
     const supabase = createClient();
     const student = students.find(s => s.id === selectedStudent)!;
-
     const startDate = `${year}-${String(month).padStart(2,"0")}-01`;
-    const endDate = `${year}-${String(month).padStart(2,"0")}-31`;
+    const endDate = `${year}-${String(month).padStart(2,"0")}-30`;
 
     const [attRes, payRes, sessRes] = await Promise.all([
-      supabase.from("attendance").select("status, date").eq("student_id", selectedStudent).gte("date", startDate).lte("date", endDate),
-      supabase.from("payments").select("status, month, year").eq("student_id", selectedStudent).eq("month", month).eq("year", year),
-      supabase.from("sessions").select("status, date").eq("student_id", selectedStudent).gte("date", startDate).lte("date", endDate),
+      supabase.from("attendance").select("status").eq("student_id", selectedStudent).gte("date", startDate).lte("date", endDate),
+      supabase.from("payments").select("status").eq("student_id", selectedStudent).eq("month", month).eq("year", year),
+      supabase.from("sessions").select("status").eq("student_id", selectedStudent).gte("date", startDate).lte("date", endDate),
     ]);
 
     const att = attRes.data || [];
-    const pay = payRes.data || [];
-    const sess = sessRes.data || [];
-
     const present = att.filter(a => a.status === "present").length;
     const absent = att.filter(a => a.status === "absent").length;
     const leave = att.filter(a => a.status === "leave").length;
     const total = present + absent + leave;
     const attPct = total > 0 ? Math.round((present / total) * 100) : 0;
-    const feePaid = pay.length > 0 && pay[0].status === "paid";
-    const doneSessions = sess.filter(s => s.status === "done").length;
-    const totalSessions = sess.length;
+    const attGrade = attPct >= 90 ? "A+" : attPct >= 80 ? "A" : attPct >= 70 ? "B" : attPct >= 60 ? "C" : "D";
+    const feePaid = (payRes.data || []).length > 0 && payRes.data![0].status === "paid";
+    const doneSessions = (sessRes.data || []).filter(s => s.status === "done").length;
+    const totalSessions = (sessRes.data || []).length;
 
-    const prompt = `You are an expert tutor assistant. Generate a professional, encouraging report card in Urdu/English mix (Roman Urdu) for a student.
+    const prompt = `You are a professional Pakistani tutor writing a monthly report card. Write ONLY in Roman Urdu (Pakistani style). 
 
-Student Details:
-- Name: ${student.name}
-- Parent: ${student.parent_name}
-- Subject: ${student.subject}
-- Month: ${MONTHS[month-1]} ${year}
-- Tutor: ${tutorName}
+STRICT RULES:
+- Use ONLY Roman Urdu - NO Urdu script, NO Hindi words
+- Roman Urdu means: "acha", "theek", "mehnat", "koshish", "umeed", "shukriya" etc
+- NO Hindi words like: "bahut" (use "bohat"), "hain" (use "hain is ok), "bahiya", "bhi" is ok
+- Format with clear sections using emojis
+- Keep a warm, encouraging, professional tone
+- Do NOT use asterisks ** for bold - just write plainly
+
+Student: ${student.name}
+Subject: ${student.subject}  
+Month: ${MONTHS[month-1]} ${year}
+Tutor: ${tutorName}
+Parent: ${student.parent_name}
 
 Performance Data:
-- Attendance: ${present} present, ${absent} absent, ${leave} leave out of ${total} total days (${attPct}%)
-- Sessions Completed: ${doneSessions} out of ${totalSessions}
-- Fee Status: ${feePaid ? "Paid ✓" : "Pending ✗"}
-- Monthly Fee: PKR ${student.monthly_fee.toLocaleString()}
+- Attendance: ${present} present, ${absent} absent, ${leave} leave (${attPct}% - Grade ${attGrade})
+- Sessions: ${doneSessions} complete out of ${totalSessions} total
+- Fee: ${feePaid ? "Paid - Shukriya!" : "Pending hai"}
 
-Generate a warm, professional report card with:
-1. Overall Performance Summary (2-3 sentences)
-2. Attendance Analysis with grade (A/B/C/D)
-3. Subject Progress comments for ${student.subject}
-4. Strengths (2 points)
-5. Areas for Improvement (2 points)  
-6. Tutor's Personal Message to parent (warm, encouraging, in Roman Urdu)
-7. Overall Grade/Rating (out of 10)
+Write the report card in this exact format:
 
-Keep it encouraging, professional and parent-friendly. Mix English and Roman Urdu naturally.`;
+━━━━━━━━━━━━━━━━━━━━
+TUTOR DESK - Monthly Report Card
+━━━━━━━━━━━━━━━━━━━━
 
-    try {
-      const response = await fetch("/api/ai", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt })
-      });
+Student: ${student.name}
+Subject: ${student.subject}
+Month: ${MONTHS[month-1]} ${year}
+Tutor: ${tutorName}
 
-      const data = await response.json();
-      const text = data.text || data.error || "Report generate nahi ho saki. Dobara try karo!";
-      setReportCard(text);
-    } catch (err) {
-      setReportCard("❌ Error: Report generate nahi ho saki. Internet check karo.");
-    }
+━━━━━━━━━━━━━━━━━━━━
+📊 OVERALL SUMMARY
+━━━━━━━━━━━━━━━━━━━━
+(2-3 lines in Roman Urdu about overall performance)
+
+━━━━━━━━━━━━━━━━━━━━
+✅ ATTENDANCE
+━━━━━━━━━━━━━━━━━━━━
+Hazri: ${present}/${total} din  
+Grade: ${attGrade} (${attPct}%)
+(1-2 lines comment in Roman Urdu)
+
+━━━━━━━━━━━━━━━━━━━━
+📚 SUBJECT PROGRESS - ${student.subject}
+━━━━━━━━━━━━━━━━━━━━
+(2-3 lines about subject progress in Roman Urdu)
+
+━━━━━━━━━━━━━━━━━━━━
+💪 KHOOBIYAN (Strengths)
+━━━━━━━━━━━━━━━━━━━━
+1. (strength 1)
+2. (strength 2)
+
+━━━━━━━━━━━━━━━━━━━━
+📈 BEHTAR HO SAKTA HAI (Areas to Improve)
+━━━━━━━━━━━━━━━━━━━━
+1. (improvement 1)
+2. (improvement 2)
+
+━━━━━━━━━━━━━━━━━━━━
+💬 TUTOR KA PAIGHAM
+━━━━━━━━━━━━━━━━━━━━
+(A warm personal message to ${student.parent_name} in Roman Urdu - 3-4 lines)
+
+━━━━━━━━━━━━━━━━━━━━
+Overall Rating: X/10
+━━━━━━━━━━━━━━━━━━━━`;
+
+    const text = await callAI(prompt);
+    setResult(text);
     setLoading(false);
   }
 
   async function generateStudyPlan() {
     if (!selectedStudent) return;
     setLoading(true);
-    setReportCard("");
+    setResult("");
     const student = students.find(s => s.id === selectedStudent)!;
 
-    const prompt = `You are an expert Pakistani tutor. Create a detailed monthly study plan for a student.
+    const prompt = `You are a professional Pakistani tutor. Create a monthly study plan.
+
+STRICT RULES:
+- Write ONLY in Roman Urdu (Pakistani style) mixed with English subject terms
+- NO Urdu script, NO Hindi words
+- Use clean formatting with emojis
+- No asterisks for bold
 
 Student: ${student.name}
 Subject: ${student.subject}
 Month: ${MONTHS[month-1]} ${year}
-Sessions per week: Assume 3 sessions per week, 1 hour each
+Sessions: 3 per week, 1 hour each
 
-Create a structured 4-week study plan with:
-1. Week 1: Topics to cover (with specific sub-topics)
-2. Week 2: Topics to cover (building on week 1)
-3. Week 3: Topics to cover + Practice/Revision
-4. Week 4: Revision + Assessment
+Write in this format:
 
-Also include:
-- Daily homework suggestions (15-20 min)
-- Resources/materials recommended
-- Tips for parents to support at home
+━━━━━━━━━━━━━━━━━━━━
+TUTOR DESK - Monthly Study Plan
+━━━━━━━━━━━━━━━━━━━━
+Student: ${student.name}
+Subject: ${student.subject}
+Month: ${MONTHS[month-1]} ${year}
 
-Keep it practical, specific to ${student.subject}, and suitable for Pakistani curriculum.
-Write in mix of English and Roman Urdu.`;
+━━━━━━━━━━━━━━━━━━━━
+📅 WEEK 1
+━━━━━━━━━━━━━━━━━━━━
+Topics: (specific topics for ${student.subject})
+Sessions: 3 sessions
+Homework: (daily 20 min homework suggestion)
 
-    try {
-      const response = await fetch("/api/ai", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt })
-      });
-      const data = await response.json();
-      setReportCard(data.text || data.error || "Plan generate nahi hua.");
-    } catch {
-      setReportCard("❌ Error. Dobara try karo.");
-    }
+━━━━━━━━━━━━━━━━━━━━
+📅 WEEK 2
+━━━━━━━━━━━━━━━━━━━━
+Topics: (next topics)
+Sessions: 3 sessions  
+Homework: (homework suggestion)
+
+━━━━━━━━━━━━━━━━━━━━
+📅 WEEK 3
+━━━━━━━━━━━━━━━━━━━━
+Topics: (revision + new topics)
+Sessions: 3 sessions
+Homework: (homework suggestion)
+
+━━━━━━━━━━━━━━━━━━━━
+📅 WEEK 4 - Revision Week
+━━━━━━━━━━━━━━━━━━━━
+Topics: (full revision)
+Sessions: 3 sessions
+Test: (mini test suggestion)
+
+━━━━━━━━━━━━━━━━━━━━
+💡 PARENTS KE LIYE TIPS
+━━━━━━━━━━━━━━━━━━━━
+(3 practical tips in Roman Urdu for parents to help at home)
+
+━━━━━━━━━━━━━━━━━━━━
+📚 RESOURCES
+━━━━━━━━━━━━━━━━━━━━
+(Recommended books/materials for ${student.subject})`;
+
+    const text = await callAI(prompt);
+    setResult(text);
     setLoading(false);
   }
 
   async function generateFeedback() {
     if (!selectedStudent) return;
     setLoading(true);
-    setReportCard("");
-    const student = students.find(s => s.id === selectedStudent)!;
-
+    setResult("");
     const supabase = createClient();
+    const student = students.find(s => s.id === selectedStudent)!;
     const startDate = `${year}-${String(month).padStart(2,"0")}-01`;
-    const endDate = `${year}-${String(month).padStart(2,"0")}-31`;
+    const endDate = `${year}-${String(month).padStart(2,"0")}-30`;
 
     const { data: att } = await supabase.from("attendance").select("status").eq("student_id", selectedStudent).gte("date", startDate).lte("date", endDate);
     const present = (att || []).filter(a => a.status === "present").length;
     const total = (att || []).length;
     const attPct = total > 0 ? Math.round((present / total) * 100) : 0;
 
-    const prompt = `You are a professional Pakistani tutor. Write a warm, personalized WhatsApp message to the parent.
+    const prompt = `You are a professional Pakistani tutor. Write a WhatsApp message to a parent.
+
+STRICT RULES:
+- Write ONLY in Roman Urdu (Pakistani style)
+- NO Urdu script at all
+- NO Hindi words - use proper Pakistani words
+- Pakistani Roman Urdu: "bohat", "acha", "theek", "mehnat", "koshish", "umeed", "shukriya", "aap", "hain", "kar", "raha", "tha"
+- Keep it warm, respectful and concise (150-180 words max)
+- Use WhatsApp style with emojis
+- Start with Assalam o Alaikum
 
 Student: ${student.name}
 Parent: ${student.parent_name}
 Subject: ${student.subject}
 Month: ${MONTHS[month-1]} ${year}
 Attendance: ${attPct}%
+Tutor: ${tutorName}
 
-Write a professional yet warm WhatsApp message in Roman Urdu that:
-1. Greets parent respectfully (Assalam o Alaikum)
-2. Gives monthly progress update
-3. Mentions attendance
-4. Highlights one strength and one area to improve
-5. Encourages parent involvement
-6. Ends warmly
+Write a complete WhatsApp message only - no extra explanation needed.`;
 
-Keep it concise (150-200 words), conversational, and use WhatsApp-friendly formatting with emojis.`;
-
-    try {
-      const response = await fetch("/api/ai", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt })
-      });
-      const data = await response.json();
-      setReportCard(data.text || data.error || "Message generate nahi hua.");
-    } catch {
-      setReportCard("❌ Error. Dobara try karo.");
-    }
+    const text = await callAI(prompt);
+    setResult(text);
     setLoading(false);
+  }
+
+  function handleGenerate() {
+    if (activeTab === "report") generateReportCard();
+    else if (activeTab === "study") generateStudyPlan();
+    else generateFeedback();
+  }
+
+  function handleCopy() {
+    navigator.clipboard.writeText(result);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   const student = students.find(s => s.id === selectedStudent);
 
   const tabs = [
-    { id: "report", label: "📝 Report Card", desc: "AI se professional report card" },
-    { id: "study", label: "📚 Study Plan", desc: "Monthly study plan generate karo" },
-    { id: "feedback", label: "💬 Parent Message", desc: "WhatsApp message for parents" },
-  ] as const;
+    { id: "report" as const, label: "📝 Report Card", desc: "Monthly progress report" },
+    { id: "study" as const, label: "📚 Study Plan", desc: "4 week plan generate karo" },
+    { id: "feedback" as const, label: "💬 Parent Message", desc: "WhatsApp message" },
+  ];
 
   return (
     <div className="fade-in">
-      {/* Header */}
       <div style={{ marginBottom: 28 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
           <div style={{ background: "linear-gradient(135deg, #7C3AED, #A78BFA)", borderRadius: 12, width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🤖</div>
           <div>
             <h1 style={{ fontSize: 26, fontWeight: 800, color: "var(--text-primary)" }}>AI Assistant</h1>
-            <p style={{ color: "var(--text-secondary)", fontSize: 14 }}>Powered by Claude AI — Smart tools for tutors</p>
+            <p style={{ color: "var(--text-secondary)", fontSize: 14 }}>Powered by Groq AI — Fast & Free</p>
           </div>
         </div>
       </div>
 
-      {/* Tab Selector */}
+      {/* Tabs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 24 }}>
         {tabs.map(tab => (
-          <button key={tab.id} onClick={() => { setActiveTab(tab.id); setReportCard(""); }}
-            style={{ padding: "16px", borderRadius: 14, border: `2px solid ${activeTab === tab.id ? "#7C3AED" : "var(--border)"}`, background: activeTab === tab.id ? "linear-gradient(135deg, #EDE9FE, #F5F3FF)" : "var(--bg-card)", cursor: "pointer", textAlign: "left", transition: "all 0.2s", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-            <p style={{ fontSize: 15, fontWeight: 700, color: activeTab === tab.id ? "#7C3AED" : "var(--text-primary)", marginBottom: 4 }}>{tab.label}</p>
+          <button key={tab.id} onClick={() => { setActiveTab(tab.id); setResult(""); }}
+            style={{ padding: "16px", borderRadius: 14, border: `2px solid ${activeTab === tab.id ? "#7C3AED" : "var(--border)"}`, background: activeTab === tab.id ? "rgba(124,58,237,0.08)" : "var(--bg-card)", cursor: "pointer", textAlign: "left", fontFamily: "'Plus Jakarta Sans', sans-serif", transition: "all 0.2s" }}>
+            <p style={{ fontSize: 14, fontWeight: 700, color: activeTab === tab.id ? "#7C3AED" : "var(--text-primary)", marginBottom: 4 }}>{tab.label}</p>
             <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{tab.desc}</p>
           </button>
         ))}
@@ -247,8 +304,8 @@ Keep it concise (150-200 words), conversational, and use WhatsApp-friendly forma
       <div className="card" style={{ padding: "24px 28px", marginBottom: 24 }}>
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 16, marginBottom: 20 }}>
           <div>
-            <label className="label">Student Select karo</label>
-            <select className="input" value={selectedStudent} onChange={e => { setSelectedStudent(e.target.value); setReportCard(""); }}>
+            <label className="label">Student</label>
+            <select className="input" value={selectedStudent} onChange={e => { setSelectedStudent(e.target.value); setResult(""); }}>
               {students.map(s => <option key={s.id} value={s.id}>{s.name} — {s.subject}</option>)}
             </select>
           </div>
@@ -267,49 +324,44 @@ Keep it concise (150-200 words), conversational, and use WhatsApp-friendly forma
         </div>
 
         {student && (
-          <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 20, padding: "12px 16px", background: "var(--bg-hover)", borderRadius: 10 }}>
-            <div style={{ background: "linear-gradient(135deg, #7C3AED, #A78BFA)", borderRadius: "50%", width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 700 }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "center", padding: "12px 16px", background: "var(--bg-hover)", borderRadius: 10, marginBottom: 20 }}>
+            <div style={{ background: "linear-gradient(135deg, #7C3AED, #A78BFA)", borderRadius: "50%", width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 700, fontSize: 16, flexShrink: 0 }}>
               {student.name.charAt(0)}
             </div>
             <div>
               <p style={{ fontWeight: 600, fontSize: 14, color: "var(--text-primary)" }}>{student.name}</p>
-              <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{student.subject} • Parent: {student.parent_name} • PKR {student.monthly_fee.toLocaleString()}/month</p>
+              <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{student.subject} • Parent: {student.parent_name}</p>
             </div>
           </div>
         )}
 
-        <button
-          onClick={activeTab === "report" ? generateReportCard : activeTab === "study" ? generateStudyPlan : generateFeedback}
-          disabled={loading || !selectedStudent}
-          style={{ padding: "13px 28px", background: loading ? "#94A3B8" : "linear-gradient(135deg, #7C3AED, #A78BFA)", color: "white", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: loading ? "not-allowed" : "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 4px 14px rgba(124,58,237,0.3)" }}>
-          {loading ? (
-            <>
-              <span style={{ display: "inline-block", animation: "spin 1s linear infinite" }}>⏳</span>
-              AI generate kar raha hai...
-            </>
-          ) : (
-            <>🤖 {activeTab === "report" ? "Report Card Generate Karo" : activeTab === "study" ? "Study Plan Generate Karo" : "Parent Message Generate Karo"}</>
-          )}
+        <button onClick={handleGenerate} disabled={loading || !selectedStudent}
+          style={{ padding: "13px 28px", background: loading ? "var(--text-muted)" : "linear-gradient(135deg, #7C3AED, #A78BFA)", color: "white", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: loading ? "not-allowed" : "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 4px 14px rgba(124,58,237,0.3)", transition: "all 0.2s" }}>
+          {loading ? "⏳ AI likh raha hai..." : `🤖 ${activeTab === "report" ? "Report Card Banao" : activeTab === "study" ? "Study Plan Banao" : "Message Banao"}`}
         </button>
       </div>
 
       {/* Result */}
-      {reportCard && (
+      {result && (
         <div className="card" style={{ padding: "28px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
             <h2 style={{ fontWeight: 700, fontSize: 16, color: "var(--text-primary)" }}>
-              {activeTab === "report" ? "📝 AI Generated Report Card" : activeTab === "study" ? "📚 Monthly Study Plan" : "💬 Parent WhatsApp Message"}
+              {activeTab === "report" ? "📝 Report Card" : activeTab === "study" ? "📚 Study Plan" : "💬 Parent Message"}
             </h2>
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => navigator.clipboard.writeText(reportCard)}
+              <button onClick={handleCopy}
                 style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-secondary)", cursor: "pointer", fontSize: 13, fontWeight: 500, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                📋 Copy
+                {copied ? "✓ Copied!" : "📋 Copy"}
               </button>
               {activeTab === "feedback" && student && (
-                <a href={`https://wa.me/92${student.parent_name}?text=${encodeURIComponent(reportCard)}`}
-                  target="_blank" style={{ padding: "8px 16px", borderRadius: 8, background: "#25D366", color: "white", textDecoration: "none", fontSize: 13, fontWeight: 600 }}>
+                <button onClick={() => {
+                  const phone = student.parent_name;
+                  const url = `https://wa.me/?text=${encodeURIComponent(result)}`;
+                  window.open(url, "_blank");
+                }}
+                  style={{ padding: "8px 16px", borderRadius: 8, background: "#25D366", color: "white", border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                   📲 WhatsApp
-                </a>
+                </button>
               )}
               <button onClick={() => window.print()}
                 style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #7C3AED, #A78BFA)", color: "white", cursor: "pointer", fontSize: 13, fontWeight: 600, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
@@ -318,28 +370,13 @@ Keep it concise (150-200 words), conversational, and use WhatsApp-friendly forma
             </div>
           </div>
 
-          {/* Report Card Display */}
-          <div style={{ background: "var(--bg-hover)", borderRadius: 12, padding: "24px", border: "1px solid var(--border)" }}>
-            {/* Header */}
-            <div style={{ textAlign: "center", marginBottom: 20, paddingBottom: 16, borderBottom: "2px solid var(--border)" }}>
-              <div style={{ background: "linear-gradient(135deg, #7C3AED, #A78BFA)", color: "white", borderRadius: 10, width: 48, height: 48, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, margin: "0 auto 12px" }}>TD</div>
-              <p style={{ fontWeight: 800, fontSize: 18, color: "var(--text-primary)" }}>Tutor Desk — AI Report</p>
-              <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{student?.name} • {MONTHS[month-1]} {year}</p>
-            </div>
-
-            <div style={{ whiteSpace: "pre-wrap", fontSize: 14, lineHeight: 1.8, color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-              {reportCard}
-            </div>
-
-            <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-muted)" }}>
-              <span>Generated by Tutor Desk AI</span>
-              <span>Tutor: {tutorName}</span>
-            </div>
+          <div style={{ background: "var(--bg-hover)", borderRadius: 14, padding: "28px", border: "1px solid var(--border)" }}>
+            <pre style={{ whiteSpace: "pre-wrap", fontSize: 14, lineHeight: 1.9, color: "var(--text-primary)", fontFamily: "'Plus Jakarta Sans', sans-serif", margin: 0 }}>
+              {result}
+            </pre>
           </div>
         </div>
       )}
-
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
